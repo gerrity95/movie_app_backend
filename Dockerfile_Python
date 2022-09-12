@@ -22,6 +22,8 @@ COPY --from=dependencies /usr/src/app/requirements.txt ./
 COPY --from=dependencies /root/.cache /root/.cache
 
 # Install app dependencies
+RUN apk update \
+    && apk add --no-cache musl-dev gcc
 RUN pip install -r requirements.txt
 COPY --from=build /usr/src/app/ ./
 EXPOSE 5000

@@ -17,7 +17,7 @@ class RabbitMqClient:
         self.timeout = 60
         self.connection = None
         self.channel = None
-        self.exchange_name = "fmovies-exchange"
+        self.exchange_name = "whattowatch-exchange"
         self.exchange = None
         
     async def connect(self):
