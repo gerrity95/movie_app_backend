@@ -18,13 +18,13 @@ class MongoClient:
         self.client = AsyncIOMotorClient(f'mongodb://{self.user}:{self.password}@{self.endpoint}:{self.port}/{self.db}')
 
     def node_db(self) -> AgnosticDatabase:
-        return self.client.nodejs_db
+        return self.client.whattowatch
 
     def rated_collection(self) -> AgnosticCollection:
-        return self.client.nodejs_db.rated_movies
+        return self.client.whattowatch.rated_movies
     
     def recommended_collection(self) -> AgnosticCollection:
-        return self.client.nodejs_db.recommended_movies
+        return self.client.whattowatch.recommended_movies
 
     async def ping(self) -> bool:
         try:
@@ -34,7 +34,7 @@ class MongoClient:
             print(f"Error talking to Mongo: {error}")
             return "Internal Server Error", 500
         
-    async def make_request(self, query: list, collection: str, database: str = 'nodejs_db'):
+    async def make_request(self, query: list, collection: str, database: str = 'whattowatch'):
         """
         Function to make request against Mongo Collection
         """
