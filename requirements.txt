@@ -1,0 +1,10 @@
+flask
+motor==2.5.1
+requests
+aiohttp
+python-dotenv
+flask[async]
+pika
+aio_pika
+pylint
+prometheus-flask-exporter
