@@ -41,7 +41,7 @@ services:
         restart: unless-stopped
           #networks:
           #- app-network
-        command: python -u async_rmq.py
+        command: python -u async_rmq.py tv
 
   db:
     image: mongo

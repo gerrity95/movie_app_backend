@@ -2,6 +2,7 @@ from uuid import uuid4
 import datetime
 import pickle
 from enum import Enum, auto
+from env_config import Config
 
 
 class State(Enum):
@@ -27,7 +28,7 @@ class RecommendationsEvent:
     
     @staticmethod
     def routing_key() -> str:
-        return 'recommendations_queue'
+        return Config().ROUTING_KEY
 
     def __init__(self, user_id: str, is_new: bool):
         self.user_id = user_id
@@ -36,6 +37,7 @@ class RecommendationsEvent:
         self.parent_uuid = self.uuid
         self.timestamp = datetime.datetime.now()
         self.reccomendations = []
+        self.duration = 0
         self.result_routing_key = self.uuid
         self.test_attribute = "Hello Mark"
         self.state = State.undefined

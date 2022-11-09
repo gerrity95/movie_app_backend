@@ -27,25 +27,24 @@ class TmdbClient:
             print(f"Error talking to TMDB: {error}")
             return "Internal Server Error", 500
 
-    async def make_movie_request(self, path: str, movie_id: int):
+    async def make_media_request(self, path: str, media_id: int):
         """
         Function to make request against TMDB API
         """
-        print(f"Making request against movie endpoint for movie: {movie_id}")
+        print(f"Making request against media endpoint for media: {media_id}")
         try:
             headers = {
                 'Authorization': f"Bearer {self.read_token}"
             }
-            print(f"Url is: ")
-            print(f"{self.api_endpoint}/movie/{movie_id}/{path}")
-            result = requests.get(url=f"{self.api_endpoint}/movie/{movie_id}/{path}",
+            print(f"Url is: {self.api_endpoint}/{self.config.NODE_ENV}/{media_id}/{path}")
+            result = requests.get(url=f"{self.api_endpoint}/{self.config.NODE_ENV}/{media_id}/{path}",
                                   headers=headers)
         except Exception as error:
             print(f"Error attempting to make request against tmdb: {error}")
             return None, error
 
         if result.status_code == 200:
-            print("Successfully got a response from generic movie endpoint...")
+            print("Successfully got a response from generic media endpoint...")
             try:
                 return result.json(), None
             except json.decoder.JSONDecodeError as err:
@@ -67,11 +66,11 @@ class TmdbClient:
         except Exception as e:
             print("Unable to get url {} due to {}.".format(url, e.__class__))
 
-    async def make_parallel_movie_request(self, movies: list, path):
+    async def make_parallel_media_request(self, medias: list, path):
         urls = []
         try:
-            for movie in movies:
-                urls.append(f"{self.api_endpoint}/movie/{movie['movie_id']}/{path}")
+            for media in medias:
+                urls.append(f"{self.api_endpoint}/{self.config.NODE_ENV}/{media[self.config.ID_KEY]}/{path}")
 
             async with aiohttp.ClientSession() as session:
                 ret = await asyncio.gather(*[self.get(url, session) for url in urls])
@@ -111,7 +110,7 @@ class TmdbClient:
             headers = {
                 'Authorization': f"Bearer {self.read_token}"
             }
-            result = requests.get(url=f"{self.api_endpoint}/discover/movie/",
+            result = requests.get(url=f"{self.api_endpoint}/discover/{self.config.NODE_ENV}/",
                                   headers=headers, params=params)
         except Exception as error:
             print(f"Error attempting to make request against tmdb: {error}")
@@ -150,7 +149,7 @@ class TmdbClient:
                 for key, value in params.items():
                     param_string += f"&{key}={value}"
 
-                urls.append(f"{self.api_endpoint}discover/movie?{param_string}")
+                urls.append(f"{self.api_endpoint}discover/{self.config.NODE_ENV}?{param_string}")
 
             async with aiohttp.ClientSession() as session:
                 ret = await asyncio.gather(*[self.get(url, session) for url in urls])
@@ -167,13 +166,13 @@ class TmdbClient:
             print(f"Error {e} attempting to talk to TMDB.")
             return None, Exception
 
-    async def get_movie_information(self, movie_ids: list):
+    async def get_media_information(self, media_ids: list):
         """
         Function that will get movie information for a list of movie IDs
         """
         urls = []
         try:
-            for movie in movie_ids:
+            for movie in media_ids:
                 urls.append(f"{self.api_endpoint}/movie/{movie}")
 
             async with aiohttp.ClientSession() as session:

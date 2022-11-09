@@ -1,10 +1,10 @@
 import asyncio
 from typing import Optional
 
+from env_config import Config
 from base.mongoclient import MongoClient
 from base.tmdbclient import TmdbClient
 from base.rabbitmq_client import RabbitMqClient
-from base.recc_calculator import ReccCalculator
 import json
 import datetime
 from base.recommendations_helper import RecommendationException, JSONEncoder, RecommendationsHelper
@@ -14,20 +14,105 @@ from base.events import RecommendationsEvent, State
 class Recommendations:
 
     def __init__(self) -> None:
+        self.config = Config()
         self.mongo_client = MongoClient()
         self.tmdb_client = TmdbClient()
         self.rabbitmq_client = RabbitMqClient()
-        self.recc_calculator = ReccCalculator()
         self.recc_helper = RecommendationsHelper()
+
+    async def process_recommendations(self, user_id: str):
+        """
+        Logic in the calculate_reccs function but update state etc.
+
+        if stored_reccs:
+
+            need_new_reccs, error = handle_stored_reccs
+            if error:
+                errorHandle
+            if need_new_reccs:
+                process_recss
+            else:
+                reccs are up to date
+        else:
+            process_reccs
+
+        Logic in the process_reccs in the helper class
+        """
+        # Check for existing recommendations
+        stored_reccs, error = await self.recc_helper.query_mongo_for_user(user_id, self.config.RECOMMENDATIONS_COLLECTION)
+        if error:
+            print(f"Error {error} attempting to get recommended media")
+            return None, RecommendationException
+        if stored_reccs:
+            # Check if we need to generate new recommendations
+            need_new_reccs, error = await self.handle_stored_reccs(user_id=user_id, stored_reccs=stored_reccs)
+            if error:
+                return None, error
+            
+            if need_new_reccs:
+                # Apply logic to generate new recommendations
+                recommendations, error = await self.generate_new_recommendations(user_id=user_id, is_new=True)
+            else:
+                # Return existing recommendations
+                encoded_reccs = JSONEncoder().encode(stored_reccs[0])
+                encoded_reccs = json.loads(encoded_reccs)
+                return encoded_reccs
+        else:
+            # Apply logic to generate new recommendations
+            recommendations, error = await self.generate_new_recommendations(user_id=user_id, is_new=False, existing_reccs=stored_reccs[0]['_id'])
+
+    async def generate_new_recommendations(self, user_id: str, is_new: bool, existing_reccs=None):
+        """
+        Handle the logic to generate the new recommendations
+
+        set_in_progress(is_new) // New function
+
+        gather_reccs_data
+
+        calculate_reccs_data
+
+        update_reccs_in_db
+
+        return reccs
+        """
+        print('Setting the recommendations to in progress in our database')
+        await self.recc_helper.set_in_progress(user_id=user_id, is_new=is_new, existing_reccs=existing_reccs)
+        
+    
+    async def handle_stored_reccs(self, user_id, stored_reccs):
+        """
+        Function to handle processing of existing reccs and logic around if we need new ones or if we are currently generating reccs.
+        
+        EDGE CASE, user rates movie, goes to in progress, rates another movie before first movie finishes 
+        processing. Do we generate them again?
+        """
+        try:
+            print("Checking if we are currently updating the recommendations for user: " + user_id)
+            if stored_reccs[0]['state'] == 'in_progress':
+                return await self.monitor_in_progress(user_id)
+
+            # Check against rated movies to see if we need to update the recommendations
+            encoded_reccs = JSONEncoder().encode(stored_reccs[0])
+            encoded_reccs = json.loads(encoded_reccs)
+            print("Comparing recommendations against existing ratings... ")
+            need_new_reccs, error = await self.compare_reccs_with_rated(user_id=user_id, encoded_reccs=encoded_reccs)
+            if error:
+                print(f"Error {error} seen attempting to compare recommendations with rated media")
+                return None, RecommendationException
+            
+            return need_new_reccs, None
+        except Exception as e:
+            print(f"Error {e} seen attempting to compare recommendations with rated media")
+            return None, RecommendationException
 
     async def calculate_reccs(self, user_id: str):
         """
         """
         calc_start = datetime.datetime.now()
         # Check for existing recommendations
-        stored_reccs, error = await self.recc_helper.query_mongo_for_user(user_id, 'recommended_movies')
+        stored_reccs, error = await self.recc_helper.query_mongo_for_user(user_id, self.config.RECOMMENDATIONS_COLLECTION)
         if error:
-            print(f"Error {error} attempting to get recommended movies")
+            print(f"Error {error} attempting to get recommended media")
             return None, RecommendationException
         if stored_reccs:
             try:
@@ -47,10 +132,10 @@ class Recommendations:
                 need_new_reccs, error = await self.compare_reccs_with_rated(user_id=user_id,
                                                                             encoded_reccs=encoded_reccs)
                 if error:
-                    print(f"Error {error} seen attempting to compare recommendations with rated movies ")
+                    print(f"Error {error} seen attempting to compare recommendations with rated media")
                     return None, RecommendationException
             except Exception as e:
-                print(f"Error {e} seen attempting to compare recommendations with rated movies ")
+                print(f"Error {e} seen attempting to compare recommendations with rated media")
                 return None, RecommendationException
         else:
             print("No recommendations have been generated. Sending request to RMQ to populate.... ")
@@ -81,7 +166,7 @@ class Recommendations:
             print(f"Recommendations are up to date for user {user_id}. Will not attempt to update ")
             return encoded_reccs['recommendations'], None
 
-    async def monitor_in_progress(self, user_id) -> [Optional[dict], Optional[Exception]]:
+    async def monitor_in_progress(self, user_id) -> Optional[dict]:
         """
         Function to process logic if there are currently recommendations being generated
         """
@@ -90,9 +175,9 @@ class Recommendations:
             print("Currently in the process of updating the recommendations. Will retry in 5 seconds to "
                   "check if complete... ")
             await asyncio.sleep(5)
-            stored_reccs, error = await self.recc_helper.query_mongo_for_user(user_id, 'recommended_movies')
+            stored_reccs, error = await self.recc_helper.query_mongo_for_user(user_id, self.config.RECOMMENDATIONS_COLLECTION)
             if error:
-                print(f"Error {error} attempting to get reccommended movies ")
+                print(f"Error {error} attempting to get reccommended media ")
                 return None, RecommendationException
 
             if stored_reccs[0]['state'] == 'in_progress':
@@ -110,12 +195,12 @@ class Recommendations:
         print(f"Recommendations stored for user {user_id}, checking to see if they're up to date.")
         reccs_updated = datetime.datetime.fromisoformat(encoded_reccs['updatedAt'])
 
-        # Getting rated movies
-        recent_movie, error = await self.recc_helper.most_recent_rated_movie(user_id)
+        # Getting rated media
+        recent_media, error = await self.recc_helper.most_recent_rated_media(user_id)
         if error:
-            print(f"Error {error} attempting to get rated movies")
+            print(f"Error {error} attempting to get rated media")
             return None, RecommendationException
-        encoded_recent = JSONEncoder().encode(recent_movie[0])
+        encoded_recent = JSONEncoder().encode(recent_media[0])
         encoded_recent = json.loads(encoded_recent)
         recent_updated = datetime.datetime.fromisoformat(encoded_recent['updatedAt'])
         if reccs_updated < recent_updated:

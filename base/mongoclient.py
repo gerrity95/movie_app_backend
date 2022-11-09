@@ -21,9 +21,13 @@ class MongoClient:
         return self.client.whattowatch
 
     def rated_collection(self) -> AgnosticCollection:
+        if self.config.NODE_ENV == 'tv':
+            return self.client.whattowatch.television_rateds
         return self.client.whattowatch.rated_movies
     
     def recommended_collection(self) -> AgnosticCollection:
+        if self.config.NODE_ENV == 'tv':
+            return self.client.whattowatch.recommended_televisions
         return self.client.whattowatch.recommended_movies
 
     async def ping(self) -> bool:

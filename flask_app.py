@@ -5,7 +5,9 @@ from base.tmdbclient import TmdbClient
 from base.mongoclient import MongoClient
 from base.rabbitmq_client import RabbitMqClient
 from recommendations import Recommendations
+from recommendations_publisher import RecommendationPublisher
 from watchlist import Watchlist
+from env_config import Config
 
 app = Flask(__name__)
 metrics = PrometheusMetrics(app)
@@ -21,7 +23,8 @@ common_counter = metrics.counter(
 @app.route('/')
 def welcome():
     # return a json
-    return jsonify({'status': 'api is working'})
+    env = Config().NODE_ENV
+    return jsonify({'status': 'api is working', 'env': env})
 
 
 # we define the route /
@@ -54,7 +57,8 @@ async def get_reccs():
     print("Request received to get recommendations...")
     user_id = request.json.get('user_id')
     if user_id:
-        result, error = await Recommendations().calculate_reccs(user_id=user_id)
+        # result, error = await Recommendations().calculate_reccs(user_id=user_id)
+        result, error = await RecommendationPublisher().main(user_id=user_id)
         # return a json
         if error:
             return {'status': str(error)}
@@ -71,7 +75,7 @@ async def get_watchlist():
     if user_id:
         print(f"Request received to get watchlist for user {user_id}...")
         movie_list = request.json.get('movie_list')
-        result, error = await Watchlist().process_watchlist(movie_list=movie_list)
+        result, error = await Watchlist().process_watchlist(media_list=movie_list)
         # return a json
         if error:
             return {'status': str(error)}
