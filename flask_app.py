@@ -1,10 +1,10 @@
 import os
 from flask import Flask, jsonify, request, Response
 from prometheus_flask_exporter import PrometheusMetrics
+import json
 from base.tmdbclient import TmdbClient
 from base.mongoclient import MongoClient
 from base.rabbitmq_client import RabbitMqClient
-from recommendations import Recommendations
 from recommendations_publisher import RecommendationPublisher
 from watchlist import Watchlist
 from env_config import Config
@@ -61,8 +61,11 @@ async def get_reccs():
         result, error = await RecommendationPublisher().main(user_id=user_id)
         # return a json
         if error:
-            return {'status': str(error)}
-        return {'result': result}
+            return jsonify({'status': str(error)})
+        
+        print('NO ERROR')
+        print(result)
+        return jsonify({'result': result.deconstruct()})
 
     return jsonify({'status': False})
 

@@ -5,7 +5,8 @@ from base.tmdbclient import TmdbClient
 from collections import Counter
 from base.recc_calculator import ReccCalculator
 from env_config import Config
-from bson import ObjectId
+import asyncio
+from typing import Optional
 
 
 class JSONEncoder(json.JSONEncoder):
@@ -29,49 +30,27 @@ class RecommendationsHelper:
         self.tmdb_client = TmdbClient()
         self.recc_calculator = ReccCalculator()
 
-    async def process_recommendations(self, user_id: str, is_new: bool, existing_reccs_id: str = None):
+    async def monitor_in_progress(self, user_id) -> Optional[dict]:
         """
-        A function to gather and process all recommendations for the given user
+        Function to process logic if there are currently recommendations being generated
         """
-        try:
-            rec_collection = self.mongo_client.recommended_collection()
-            if is_new:
-                print("First time generating recommendations. Creating empty recommendations object and "
-                      "Appending to Mongo...")
-                document = {'user_id': user_id, 'recommendations': {},
-                            'createdAt': datetime.datetime.now(), 'updatedAt': datetime.datetime.now(),
-                            'state': 'in_progress'}
-                result = await rec_collection.insert_one(document)
-            else:
-                print("Attempting to update the recommendations. Setting state to in progress..")
-                result = await rec_collection.update_one({'_id': existing_reccs_id}, {'$set': {'state': 'in_progress'},
-                                                                                      '$currentDate': {
-                                                                                          'updatedAt': True}})
-
-            print(result)
-            reccs_data, error = await self.gather_reccs_data(user_id)
+        counter = 0
+        while counter < 5:
+            print("Currently in the process of updating the recommendations. Will retry in 5 seconds to "
+                    "check if complete... ")
+            await asyncio.sleep(5)
+            stored_reccs, error = await self.recc_helper.query_mongo_for_user(user_id, self.config.RECOMMENDATIONS_COLLECTION)
             if error:
-                print("Error attempting to get rated movies")
-                return None, RecommendationException("Error attempting to gather recommendation data")
+                print(f"Error {error} attempting to get reccommended media ")
+                return None, RecommendationException
 
-            print("Attempting to process recommendation data...")
-            sorted_reccomendations = self.recc_calculator.do_calculate(tmdb_data=json.loads(reccs_data))
-            print("Updating recommendations in Mongo...")
-            if not existing_reccs_id:
-                stored_reccs, error = await self.query_mongo_for_user(user_id, self.config.RECOMMENDATIONS_COLLECTION)
-                existing_reccs_id = stored_reccs[0]['_id']
-
-            result = await rec_collection.update_one({'_id': existing_reccs_id}, {
-                '$set': {'recommendations': sorted_reccomendations, 'state': 'complete'},
-                '$currentDate': {'updatedAt': True}})
-            print(result)
-            return sorted_reccomendations, None
-        except Exception as err:
-            print(f"Error {err} seen when attempting to calculate reccommendations")
-            await rec_collection.update_one({'_id': existing_reccs_id},
-                                            {'$set': {'state': 'failed'}, '$currentDate': {'updatedAt': True}})
-            return None, Exception(str(err))
-
+            if stored_reccs[0]['state'] == 'in_progress':
+                counter += 1
+            else:
+                # No need to generate them again so can just return. Want to wait until process is complete.
+                print("Recommendations have been updated as part of another process. Returning. ")
+                return stored_reccs[0]['recommendations'], None
+            
     async def set_in_progress(self, user_id: str, is_new: bool, existing_reccs=None):
         """
         Set the reccs object in the DB to in progress
@@ -83,12 +62,13 @@ class RecommendationsHelper:
             document = {'user_id': user_id, 'recommendations': {},
                         'createdAt': datetime.datetime.now(), 'updatedAt': datetime.datetime.now(),
                         'state': 'in_progress'}
-            await rec_collection.insert_one(document)
+            result = await rec_collection.insert_one(document)
         else:
             print("Attempting to update the recommendations. Setting state to in progress..")
-            await rec_collection.update_one({'_id': existing_reccs}, {'$set': {'state': 'in_progress'},
-                                                                                  '$currentDate': {
-                                                                                    'updatedAt': True}})
+            result = await rec_collection.update_one({'_id': existing_reccs}, {'$set': {'state': 'in_progress'},
+                                                                                        '$currentDate': {
+                                                                                        'updatedAt': True}})
+        return result
 
 
     async def gather_reccs_data(self, user_id: str):

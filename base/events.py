@@ -30,9 +30,8 @@ class RecommendationsEvent:
     def routing_key() -> str:
         return Config().ROUTING_KEY
 
-    def __init__(self, user_id: str, is_new: bool):
+    def __init__(self, user_id: str):
         self.user_id = user_id
-        self.is_new = is_new
         self.uuid = str(uuid4())
         self.parent_uuid = self.uuid
         self.timestamp = datetime.datetime.now()
@@ -42,6 +41,23 @@ class RecommendationsEvent:
         self.test_attribute = "Hello Mark"
         self.state = State.undefined
         self.existing_reccs_id = None
+        
+    def deconstruct(self):
+        """Deconstruct the class object into a JSON readable format"""
+        a_dict = {
+            "user_id": self.user_id,
+            "uuid": self.uuid,
+            "parent_uuid": self.parent_uuid,
+            "reccomendations": self.reccomendations,
+            "duration": self.duration,
+            "result_routing_key": self.result_routing_key,
+            "state": self.state.name,
+            "existing_reccs_id": self.existing_reccs_id
+        }
+        
+        # Remove empty attributes
+        return {k: v for k, v in a_dict.items()
+                if v != "" and v is not None and v != {}}
         
     def serialize(self):
         """Convert a RecommendationsEvent to bytes so we can pass it through RMQ"""
