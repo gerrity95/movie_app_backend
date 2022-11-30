@@ -21,7 +21,7 @@ services:
         restart: unless-stopped
           #networks:
           #- app-network
-        command: python -u flask_app.py
+        command: python -u flask_app.py tv
   rmq_client:
         container_name: whattowatch_rmq
         image: python_backend:0.0.1

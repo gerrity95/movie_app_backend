@@ -2,7 +2,7 @@ import asyncio
 from base.events import RecommendationsEvent, State
 from base.rabbitmq_client import RabbitMqClient
 from recommendations import Recommendations
-
+import traceback
 
 class AsyncRMQ:
 
@@ -42,6 +42,7 @@ class AsyncRMQ:
                     
             except Exception as error:
                 print(f"Failure seen attempting to consume RecommendationEvents: {error}. Sleeping for 30 seconds")
+                print(traceback.format_exc())
                 await asyncio.sleep(30)
 
 

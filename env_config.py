@@ -32,10 +32,14 @@ class Config:
     def load_tv_configs(self):
         self.ROUTING_KEY = 'television_recommendations'
         self.RECOMMENDATIONS_COLLECTION = 'recommended_televisions'
+        self.RATED_COLLECTION = 'television_rateds'
         self.ID_KEY = 'tv_id'
+        self.INFO_KEY = 'tv_info'
 
     def load_movie_configs(self):
         self.ROUTING_KEY = 'movie_recommendations'
         self.RECOMMENDATIONS_COLLECTION = 'recommended_movies'
+        self.RATED_COLLECTION = 'rated_movies'
         self.ID_KEY = 'movie_id'
+        self.INFO_KEY = 'movie_info'
         

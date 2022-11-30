@@ -46,7 +46,7 @@ class Recommendations:
                 # Return existing recommendations
                 encoded_reccs = JSONEncoder().encode(stored_reccs[0])
                 encoded_reccs = json.loads(encoded_reccs)
-                return encoded_reccs
+                return encoded_reccs, None
         else:
             # Apply logic to generate new recommendations
             print('No existing recommendations found. Generating new ones')
@@ -67,16 +67,18 @@ class Recommendations:
             if error:
                 print(f"Error {error} attempting to gather rated data")
                 return None, Exception
-            print(recc_data)
-            return [], None
 
             print("Attempting to process recommendation data...")
             sorted_reccomendations = self.recc_calculator.do_calculate(tmdb_data=json.loads(recc_data))
 
             print("Updating recommendations in Mongo...")
             if not existing_reccs:
+                print('Newly created entry')
+                print(updated_doc.inserted_id)
                 # For newly created entries
-                existing_reccs = updated_doc['insertedId']
+                existing_reccs = updated_doc.inserted_id 
+                
+            print(existing_reccs)
             
             result = await self.rec_collection.update_one({'_id': existing_reccs}, {
                 '$set': {'recommendations': sorted_reccomendations, 'state': 'complete'},
@@ -114,6 +116,7 @@ class Recommendations:
                 print(f"Error {error} seen attempting to compare recommendations with rated media")
                 return None, RecommendationException
             
+            print(f"User needs new recommendations: {need_new_reccs}")
             return need_new_reccs, None
         except Exception as e:
             print(f"Error {e} seen attempting to compare recommendations with rated media")
@@ -135,6 +138,8 @@ class Recommendations:
         encoded_recent = JSONEncoder().encode(recent_media[0])
         encoded_recent = json.loads(encoded_recent)
         recent_updated = datetime.datetime.fromisoformat(encoded_recent['updatedAt'])
+        print(f"RECCS UPDATED: {reccs_updated}")
+        print(f"RECENT UPLOADED: {recent_updated}")
         if reccs_updated < recent_updated:
             return True, None
         else:

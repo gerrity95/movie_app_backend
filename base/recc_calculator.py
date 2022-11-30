@@ -103,16 +103,16 @@ class ReccCalculator:
 
         return media_weights
 
-    @staticmethod
-    def format_results(media_weights, discovered_data) -> list:
+    
+    def format_results(self, media_weights, discovered_data) -> list:
         formatted_results = []
         for key, value in media_weights.items():
-            formatted_movie = {'movie_id': key, 'weight': value}
-            for movie in discovered_data:
-                if key == movie['id']:
-                    formatted_movie['movie_info'] = movie
+            formatted_media = {self.config.ID_KEY: key, 'weight': value}
+            for media in discovered_data:
+                if key == media['id']:
+                    formatted_media[self.config.INFO_KEY] = media
                     break
-            formatted_results.append(formatted_movie)
+            formatted_results.append(formatted_media)
 
         formatted_results = sorted(formatted_results, key=lambda k: k['weight'], reverse=True)
 

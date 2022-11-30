@@ -29,8 +29,8 @@ class RecommendationPublisher:
                 recommendation_event: RecommendationsEvent = result[0]
                 print(f"Succesfully got a result back from RMQ")
                 calc_finish = datetime.datetime.now()
-                print(f"Calculation Duration: {(calc_start - calc_finish).total_seconds()}")
-                recommendation_event.duration = (calc_start - calc_finish).total_seconds()
+                print(f"Calculation Duration: {(calc_finish - calc_start).total_seconds()}")
+                recommendation_event.duration = (calc_finish - calc_start).total_seconds()
             else:
                 print(f"Error {error} seen getting a result back from RMQ")
 
