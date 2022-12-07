@@ -172,8 +172,8 @@ class TmdbClient:
         """
         urls = []
         try:
-            for movie in media_ids:
-                urls.append(f"{self.api_endpoint}/movie/{movie}")
+            for id in media_ids:
+                urls.append(f"{self.api_endpoint}{self.config.NODE_ENV}/{id}")
 
             async with aiohttp.ClientSession() as session:
                 ret = await asyncio.gather(*[self.get(url, session) for url in urls])

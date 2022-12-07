@@ -21,15 +21,15 @@ class Watchlist:
         for media in media_list:
             media_ids.append(media[self.config.ID_KEY])
         
-        print(f"List of movies on watchlist: {media_ids}")
-        print(f"Getting movie information for all movies.")
+        print(f"List of media on watchlist: {media_ids}")
+        print(f"Getting data for all media.")
         
         result, error = await self.tmdb_client.get_media_information(media_ids=media_ids)    
         
         if error:
-            print(f"Error {error} seen attempting to get movie information for watchlist")
+            print(f"Error {error} seen attempting to get media information for watchlist")
             return None, Exception
         
-        print(f"Successfully got movie information for all movies in the watchlist")
+        print(f"Successfully got media information for all media in the watchlist")
         return result, None
     
