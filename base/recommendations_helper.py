@@ -1,10 +1,13 @@
-import json
+import asyncio
 import datetime
-from base.mongoclient import MongoClient
-from base.tmdbclient import TmdbClient
+import json
 from collections import Counter
-from base.recc_calculator import ReccCalculator
+from typing import Optional
 from bson import ObjectId
+from base.mongoclient import MongoClient
+from base.recc_calculator import ReccCalculator
+from base.tmdbclient import TmdbClient
+from env_config import Config
 
 
 class JSONEncoder(json.JSONEncoder):
@@ -23,69 +26,73 @@ class RecommendationException(Exception):
 class RecommendationsHelper:
 
     def __init__(self) -> None:
+        self.config = Config()
         self.mongo_client = MongoClient()
         self.tmdb_client = TmdbClient()
         self.recc_calculator = ReccCalculator()
+        self.rec_collection = self.mongo_client.recommended_collection()
 
-    async def process_recommendations(self, user_id: str, is_new: bool, existing_reccs_id: str = None):
+    async def monitor_in_progress(self, user_id) -> Optional[dict]:
         """
-        A function to gather and process all recommendations for the given user
+        Function to process logic if there are currently recommendations being generated
         """
-        try:
-            rec_collection = self.mongo_client.recommended_collection()
-            if is_new:
-                print("First time generating recommendations. Creating empty recommendations object and "
-                      "Appending to Mongo...")
-                document = {'user_id': user_id, 'recommendations': {},
-                            'createdAt': datetime.datetime.now(), 'updatedAt': datetime.datetime.now(),
-                            'state': 'in_progress'}
-                result = await rec_collection.insert_one(document)
-            else:
-                print("Attempting to update the recommendations. Setting state to in progress..")
-                result = await rec_collection.update_one({'_id': existing_reccs_id}, {'$set': {'state': 'in_progress'},
-                                                                                      '$currentDate': {
-                                                                                          'updatedAt': True}})
-
-            print(result)
-            reccs_data, error = await self.gather_reccs_data(user_id)
+        counter = 0
+        while counter < 5:
+            print("Currently in the process of updating the recommendations. Will retry in 5 seconds to "
+                    "check if complete... ")
+            await asyncio.sleep(5)
+            stored_reccs, error = await self.query_mongo_for_user(user_id, self.config.RECOMMENDATIONS_COLLECTION)
             if error:
-                print("Error attempting to get rated movies")
-                return None, RecommendationException("Error attempting to gather recommendation data")
+                print(f"Error {error} attempting to get reccommended media ")
+                return None, RecommendationException
 
-            print("Attempting to process recommendation data...")
-            sorted_reccomendations = self.recc_calculator.do_calculate(tmdb_data=json.loads(reccs_data))
-            print("Updating recommendations in Mongo...")
-            if not existing_reccs_id:
-                stored_reccs, error = await self.query_mongo_for_user(user_id, 'recommended_movies')
-                existing_reccs_id = stored_reccs[0]['_id']
+            if stored_reccs[0]['state'] == 'in_progress':
+                counter += 1
+            else:
+                # No need to generate them again so can just return. Want to wait until process is complete.
+                print("Recommendations have been updated as part of another process. Returning. ")
+                return stored_reccs[0]['recommendations'], None
+        
+        print('Existing query to update recommendations is still in progress. Returning None')
+        return None, RecommendationException
+            
+    async def set_in_progress(self, user_id: str, is_new: bool, existing_reccs=None):
+        """
+        Set the reccs object in the DB to in progress
+        """
+        if is_new:
+            print("First time generating recommendations. Creating empty recommendations object and "
+                  "Appending to Mongo...")
+            document = {'user_id': user_id, 'recommendations': {},
+                        'createdAt': datetime.datetime.now(), 'updatedAt': datetime.datetime.now(),
+                        'state': 'in_progress'}
+            result = await self.rec_collection.insert_one(document)
+        else:
+            print("Attempting to update the recommendations. Setting state to in progress..")
+            result = await self.rec_collection.update_one({'_id': existing_reccs}, {'$set': {'state': 'in_progress'},
+                                                                                        '$currentDate': {
+                                                                                        'updatedAt': True}})
+            
+        return result
 
-            result = await rec_collection.update_one({'_id': existing_reccs_id}, {
-                '$set': {'recommendations': sorted_reccomendations, 'state': 'complete'},
-                '$currentDate': {'updatedAt': True}})
-            print(result)
-            return sorted_reccomendations, None
-        except Exception as err:
-            print(f"Error {err} seen when attempting to calculate reccommendations")
-            await rec_collection.update_one({'_id': existing_reccs_id},
-                                            {'$set': {'state': 'failed'}, '$currentDate': {'updatedAt': True}})
-            return None, Exception(str(err))
 
     async def gather_reccs_data(self, user_id: str):
         print("Attempting to gather all recommendation data...")
-        rated_movies, error = await self.query_mongo_for_user(user_id, 'rated_movies')
+        rated_media, error = await self.query_mongo_for_user(user_id, self.config.RATED_COLLECTION)
         if error:
-            print("Error attempting to get rated movies")
+            print("Error attempting to get rated media")
             return None, RecommendationException
+        print(rated_media)
         keywords = []
-        for item in rated_movies:
+        for item in rated_media:
             keywords.append(item['keywords'])
-        directors, genres, keywords = self.extract_details_for_discover(rated_movies)
+        directors, genres, keywords = self.extract_details_for_discover(rated_media) # BUG HERE
 
         discover_directors = []
         disc_direc, error = await self.tmdb_client.make_parallel_discover_request(type='director',
                                                                                   unique_id_list=directors)
         if error:
-            print("Error attempting to get query discover")
+            print("Error attempting to get query discover for directors")
             return None, RecommendationException
         for item in disc_direc:
             discover_directors.extend(item['results'])
@@ -93,7 +100,7 @@ class RecommendationsHelper:
         discover_genres = []
         disc_genre, error = await self.tmdb_client.make_parallel_discover_request(type='genre', unique_id_list=genres)
         if error:
-            print("Error attempting to get query discover")
+            print("Error attempting to get query discover for genres")
             return None, RecommendationException
         for item in disc_genre:
             discover_genres.extend(item['results'])
@@ -102,58 +109,57 @@ class RecommendationsHelper:
         disc_keywords, error = await self.tmdb_client.make_parallel_discover_request(type='keywords',
                                                                                      unique_id_list=keywords)
         if error:
-            print("Error attempting to get query discover")
+            print("Error attempting to get query discover for keywords")
             return None, RecommendationException
         for item in disc_keywords:
             discover_keywords.extend(item['results'])
 
-        top_movies = self.get_top_rated_movies(rated_movies)
-        similar_movies, error = await self.tmdb_client.make_parallel_movie_request(path='similar', movies=top_movies)
+        top_media = self.get_top_rated_media(rated_media)
+        similar_media, error = await self.tmdb_client.make_parallel_media_request(path='similar', medias=top_media)
         if error:
             print("Error attempting to get similar movies")
             return None, RecommendationException
 
-        similar_movie_collection = []
-        for item in similar_movies:
-            similar_movie_collection.extend(item['results'])
+        similar_media_collection = []
+        for item in similar_media:
+            similar_media_collection.extend(item['results'])
 
-        recommended_movies, error = await self.tmdb_client.make_parallel_movie_request(path='recommendations',
-                                                                                       movies=top_movies)
+        recommended_media, error = await self.tmdb_client.make_parallel_media_request(path='recommendations',
+                                                                                      medias=top_media)
         if error:
             print("Error attempting to get recommended movies")
             return None, RecommendationException
         recommended_movie_collection = []
-        for item in recommended_movies:
+        for item in recommended_media:
             recommended_movie_collection.extend(item['results'])
 
         full_response = {'discover_directors': discover_directors, 'discover_genres': discover_genres,
                          'discover_keywords': discover_keywords,
-                         'similar_movies': similar_movie_collection,
+                         'similar_movies': similar_media_collection,
                          'recommeded_movies': recommended_movie_collection,
-                         'rated_movies': rated_movies,
+                         'rated_movies': rated_media,
                          'directors': directors,
                          'genres': genres}
 
         return JSONEncoder().encode(full_response), error
 
-    @staticmethod
-    def get_top_rated_movies(rated_movie: dict):
+    def get_top_rated_media(self, rated_media: dict):
         """
         Get the top rated movies for the given user
         """
-        movie_list = []
-        for movie in rated_movie:
-            if movie['rating'] > 6:
-                simple_movie = {'movie_id': movie['movie_id'], 'rating': movie['rating']}
-                movie_list.append(simple_movie)
+        media_list = []
+        for media in rated_media:
+            if media['rating'] > 6:
+                simple_media = {self.config.ID_KEY: media[self.config.ID_KEY], 'rating': media['rating']}
+                media_list.append(simple_media)
 
-        ordered_movies = sorted(movie_list, key=lambda i: i['rating'], reverse=True)
+        ordered_media = sorted(media_list, key=lambda i: i['rating'], reverse=True)
 
         # Returns 20 highest rated movies
-        return ordered_movies[0:19]
+        return ordered_media[0:19]
 
     @staticmethod
-    def extract_details_for_discover(rated_movie: dict):
+    def extract_details_for_discover(rated_media: dict):
         """
         Function to get relevant details from my existing rated movies for discover query
         """
@@ -161,7 +167,7 @@ class RecommendationsHelper:
         genres = []
         directors = []
         keywords = []
-        for item in rated_movie:
+        for item in rated_media:
             genres.append(item['genres'])
             directors.append(item['director'])
             keywords.append(item['keywords'])
@@ -197,7 +203,9 @@ class RecommendationsHelper:
         Function to get info from a given collection from a given user
         """
         try:
-            query = self.movies_query_build(user_id)
+            query = self.media_query_build(user_id)
+            print(collection)
+            print(query)
             rated_movies, error = await self.mongo_client.make_request(collection=collection, query=query)
         except Exception as err:
             print(f"Error: {err} when attempting to get query Mongo for collection: {collection}")
@@ -205,21 +213,22 @@ class RecommendationsHelper:
 
         return rated_movies, error
 
-    async def most_recent_rated_movie(self, user_id):
+    async def most_recent_rated_media(self, user_id):
         """
         Function to query mongo to get the most recent rated movie
         """
         try:
-            query = self.recent_movie_query(user_id)
-            rated_movies, error = await self.mongo_client.make_request(collection='rated_movies', query=query)
+            query = self.recent_media_query(user_id)
+            rated_movies, error = await self.mongo_client.make_request(collection=self.config.RATED_COLLECTION, 
+                                                                       query=query)
         except Exception as err:
-            print(f"Error: {err} when attempting to get query Mongo for collection: rated_mvoies")
+            print(f"Error: {err} when attempting to get query Mongo for collection: {self.config.RATED_COLLECTION}")
             return None, err
 
         return rated_movies, error
 
     @staticmethod
-    def recent_movie_query(user_id) -> list:
+    def recent_media_query(user_id) -> list:
         """
         Function to build out the query to get most recent rated movie
         """
@@ -240,7 +249,7 @@ class RecommendationsHelper:
         return pipeline
 
     @staticmethod
-    def movies_query_build(user_id) -> list:
+    def media_query_build(user_id) -> list:
         """
         Function to build out the query to get rated movies
         """

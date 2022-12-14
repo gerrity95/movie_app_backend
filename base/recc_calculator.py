@@ -1,10 +1,11 @@
 from collections import Counter
+from env_config import Config
 
 
 class ReccCalculator:
     
     def __init__(self) -> None:
-        pass
+        self.config = Config()
     
     def do_calculate(self, tmdb_data: dict) -> list:
         
@@ -29,19 +30,19 @@ class ReccCalculator:
         # REMOVE ALL RATED MOVIES
         existing_ids = []
         for item in rated_movies:
-            existing_ids.append(item['movie_id'])
+            existing_ids.append(item[self.config.ID_KEY])
 
         discovered_data = self.delete_existing(discovered_data, existing_ids)
         
-        movie_weights = []
+        media_weights = []
 
-        for movie in discovered_data:
-            movie_weights.append(movie['id'])
+        for media in discovered_data:
+            media_weights.append(media['id'])
 
-        movie_weights = Counter(movie_weights)
+        media_weights = Counter(media_weights)
         
         # Remove duplicates of movies from discovery list
-        for key, value in movie_weights.items():
+        for key, value in media_weights.items():
             occurrences = []
             for index, item in enumerate(discovered_data):
                 if value > 1 and item['id'] == key:
@@ -55,14 +56,14 @@ class ReccCalculator:
                         del discovered_data[i]
                         
         # Assign weight from genres
-        movie_weights = self.assign_genre_weight(movie_weights=movie_weights, genres=genres, 
+        media_weights = self.assign_genre_weight(media_weights=media_weights, genres=genres, 
                                                  discovered_data=discovered_data)
         
         # Assign weight from ratings
-        movie_weights = self.assign_voting_weight(movie_weights=movie_weights, discovered_data=discovered_data)
+        media_weights = self.assign_voting_weight(media_weights=media_weights, discovered_data=discovered_data)
     
         # Format results
-        formatted_results = self.format_results(movie_weights=movie_weights, discovered_data=discovered_data)
+        formatted_results = self.format_results(media_weights=media_weights, discovered_data=discovered_data)
         
         return formatted_results
     
@@ -77,7 +78,7 @@ class ReccCalculator:
         return rec_list
 
     @staticmethod
-    def assign_genre_weight(movie_weights, genres, discovered_data):
+    def assign_genre_weight(media_weights, genres, discovered_data):
         genre_id_list = []
         for genre in genres:
             g = genre[0].split(',')
@@ -86,32 +87,32 @@ class ReccCalculator:
         for movie in discovered_data:
             for genre in movie['genre_ids']:
                 if str(genre) in genre_id_list:
-                    for key, value in movie_weights.items():
+                    for key, value in media_weights.items():
                         if movie['id'] == key:
-                            movie_weights[key] += 1
+                            media_weights[key] += 1
 
-        return movie_weights
+        return media_weights
 
     @staticmethod
-    def assign_voting_weight(movie_weights, discovered_data):
+    def assign_voting_weight(media_weights, discovered_data):
         for movie in discovered_data:
             rating = movie['vote_average']
-            for key, value in movie_weights.items():
+            for key, value in media_weights.items():
                 if movie['id'] == key:
-                    movie_weights[key] += round(rating, 3)
+                    media_weights[key] += round(rating, 3)
 
-        return movie_weights
+        return media_weights
 
-    @staticmethod
-    def format_results(movie_weights, discovered_data) -> list:
+    
+    def format_results(self, media_weights, discovered_data) -> list:
         formatted_results = []
-        for key, value in movie_weights.items():
-            formatted_movie = {'movie_id': key, 'weight': value}
-            for movie in discovered_data:
-                if key == movie['id']:
-                    formatted_movie['movie_info'] = movie
+        for key, value in media_weights.items():
+            formatted_media = {self.config.ID_KEY: key, 'weight': value}
+            for media in discovered_data:
+                if key == media['id']:
+                    formatted_media[self.config.INFO_KEY] = media
                     break
-            formatted_results.append(formatted_movie)
+            formatted_results.append(formatted_media)
 
         formatted_results = sorted(formatted_results, key=lambda k: k['weight'], reverse=True)
 

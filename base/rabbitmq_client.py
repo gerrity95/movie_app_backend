@@ -127,7 +127,7 @@ class RabbitMqClient:
             return await asyncio.wait_for(self._consume(routing_key=routing_key,
                                                         queue=queue,
                                                         count=count),
-                                          timeout=20)
+                                          timeout=35)
         except asyncio.futures.TimeoutError as error:
             elapsed = (datetime.now() - start).total_seconds()
             print(f"Consuming events has timed out after {elapsed} seconds")

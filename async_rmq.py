@@ -1,16 +1,14 @@
 import asyncio
 from base.events import RecommendationsEvent, State
-from base.recommendations_helper import RecommendationsHelper
 from base.rabbitmq_client import RabbitMqClient
-from base.recc_calculator import ReccCalculator
-
+from recommendations import Recommendations
+import traceback
 
 class AsyncRMQ:
 
     def __init__(self) -> None:
         self.rabbitmq_client = RabbitMqClient()
-        self.reccs_helper = RecommendationsHelper()
-        self.reccs_calculator = ReccCalculator()
+        self.recommendations = Recommendations()
 
     async def consume_reccs_events(self):
         while True:
@@ -25,10 +23,7 @@ class AsyncRMQ:
                     recommendations_event: RecommendationsEvent = event
                     print(f"Consumed RecommendationsEvent for user: {recommendations_event.user_id}")
                     recommendations_event.state = State.in_progress
-                    new_reccs, error = await self.reccs_helper.process_recommendations(user_id=recommendations_event.user_id, 
-                                                                                       is_new=recommendations_event.is_new,
-                                                                                       existing_reccs_id=recommendations_event.existing_reccs_id)
-                    
+                    new_reccs, error = await self.recommendations.process_recommendations(user_id=recommendations_event.user_id)
                     if error:
                         print(f"Error {error} calculating reccs for user: {recommendations_event.user_id}")
                         recommendations_event.state = State.fail
@@ -47,6 +42,7 @@ class AsyncRMQ:
                     
             except Exception as error:
                 print(f"Failure seen attempting to consume RecommendationEvents: {error}. Sleeping for 30 seconds")
+                print(traceback.format_exc())
                 await asyncio.sleep(30)
 
 
