@@ -47,14 +47,18 @@ class RabbitMqClient:
             await self.connection.close()
             print("RabbitMQ Client close connection")
             
-    async def declare_queue(self, routing_key, durable, auto_delete):
-        await self.refresh_connection()
-        queue_name = f"{self.exchange_name}.{routing_key}"
-        
-        queue = await self.channel.declare_queue(name=queue_name, timeout=self.timeout, durable=durable, auto_delete=auto_delete)
-        await queue.bind(exchange=self.exchange, routing_key=routing_key)
-        print(f"Successfully declared queue: {queue_name}")
-        return queue
+    async def declare_queue(self, routing_key, durable, auto_delete=False):
+        try:
+            await self.refresh_connection()
+            queue_name = f"{self.exchange_name}.{routing_key}"
+            
+            queue = await self.channel.declare_queue(name=queue_name, timeout=self.timeout, durable=durable, auto_delete=auto_delete)
+            await queue.bind(exchange=self.exchange, routing_key=routing_key)
+            print(f"Successfully declared queue: {queue_name}")
+            return queue, None
+        except Exception as error:
+            print(f'Error {error} attempting to declare queue for {routing_key}')
+            return None, error
     
     async def delete_queue(self, routing_key):
         await self.refresh_connection()
@@ -120,7 +124,7 @@ class RabbitMqClient:
                 print(f"Failed to consume events from RMQ {routing_key} with error: {err}")
                 return None, err
             
-    async def consume_first(self, routing_key, queue, count):
+    async def consume_first(self, routing_key, queue, count=1):
         
         start = datetime.now()
         try:

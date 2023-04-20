@@ -51,8 +51,10 @@ services:
     environment:
       - MONGO_INITDB_ROOT_USERNAME=$MONGO_USERNAME
       - MONGO_INITDB_ROOT_PASSWORD=$MONGO_PASSWORD
+    ports:
+      - 27017:27017
     volumes:
-      - dbdata:/data/db
+      - ./dbdata:/data/db
         #networks:
         #- app-network
 
@@ -66,8 +68,9 @@ services:
     - ME_CONFIG_MONGODB_ADMINPASSWORD=$MONGO_PASSWORD
     - ME_CONFIG_BASICAUTH_USERNAME=$MONGO_USERNAME
     - ME_CONFIG_BASICAUTH_PASSWORD=$MONGO_PASSWORD
-    volumes:
-      - dbdata
+    
+      #volumes:
+      #- ./dbdata
     depends_on:
       - db
         #    networks:
@@ -96,5 +99,5 @@ networks:
     external: true
     name: app-network
 
-volumes:
-  dbdata:
+      #volumes:
+      #dbdata:

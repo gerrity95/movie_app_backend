@@ -4,6 +4,7 @@ from prometheus_flask_exporter import PrometheusMetrics
 import json
 from base.tmdbclient import TmdbClient
 from base.mongoclient import MongoClient
+from base.status import StatusClient
 from base.rabbitmq_client import RabbitMqClient
 from recommendations_publisher import RecommendationPublisher
 from watchlist import Watchlist
@@ -25,6 +26,12 @@ def welcome():
     # return a json
     env = Config().NODE_ENV
     return jsonify({'status': 'api is working', 'env': env})
+
+@app.route('/status')
+async def status_ping():
+    ping_response, ping_status = await StatusClient().ping()
+    # return a json
+    return Response(ping_response, status=ping_status)
 
 
 # we define the route /
