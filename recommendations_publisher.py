@@ -14,7 +14,7 @@ class RecommendationPublisher:
         calc_start = datetime.datetime.now()
         recommendation_event = RecommendationsEvent(user_id=user_id)
         
-        return_queue = await self.rabbitmq_client.declare_queue(routing_key=recommendation_event.result_routing_key,
+        return_queue, error = await self.rabbitmq_client.declare_queue(routing_key=recommendation_event.result_routing_key,
                                                                 durable=False,
                                                                 auto_delete=True)
         

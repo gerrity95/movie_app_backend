@@ -14,9 +14,9 @@ class AsyncRMQ:
         while True:
             try:
                 routing_key = RecommendationsEvent.routing_key()
-                events_queue = await self.rabbitmq_client.declare_queue(routing_key=routing_key,
-                                                                        durable=True,
-                                                                        auto_delete=False)
+                events_queue, error = await self.rabbitmq_client.declare_queue(routing_key=routing_key,
+                                                                               durable=True,
+                                                                               auto_delete=False)
                 
                 mq_consumer = self.rabbitmq_client.consume(queue=events_queue)
                 async for event in mq_consumer:

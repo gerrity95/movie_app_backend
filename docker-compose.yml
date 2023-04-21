@@ -21,7 +21,7 @@ services:
         restart: unless-stopped
           #networks:
           #- app-network
-        command: python -u flask_app.py tv
+        command: python -u flask_app.py movie
   rmq_client:
         container_name: whattowatch_rmq
         image: python_backend:0.0.1
@@ -41,7 +41,7 @@ services:
         restart: unless-stopped
           #networks:
           #- app-network
-        command: python -u async_rmq.py tv
+        command: python -u async_rmq.py movie
 
   db:
     image: mongo
