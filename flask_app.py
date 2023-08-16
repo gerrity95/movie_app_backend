@@ -1,13 +1,12 @@
 import os
 from flask import Flask, jsonify, request, Response
 from prometheus_flask_exporter import PrometheusMetrics
-import json
 from base.tmdbclient import TmdbClient
 from base.mongoclient import MongoClient
 from base.status import StatusClient
 from base.rabbitmq_client import RabbitMqClient
 from recommendations_publisher import RecommendationPublisher
-from watchlist import Watchlist
+from watchlist import Watchlist, Blocklist
 from env_config import Config
 
 app = Flask(__name__)
@@ -86,6 +85,23 @@ async def get_watchlist():
         print(f"Request received to get watchlist for user {user_id}...")
         movie_list = request.json.get('movie_list')
         result, error = await Watchlist().process_watchlist(media_list=movie_list)
+        # return a json
+        if error:
+            return {'status': str(error)}
+        return {'result': result}
+
+    return jsonify({'status': False})
+
+@app.route('/update_blocklist', methods=['GET', 'POST'])
+async def update_blocklist():
+    print("Request received to get update blocklist...")
+    print(request.json)
+    user_id = request.json.get('user_id')
+    if user_id:
+        print(f"Request received to get update blocklist for user {user_id}...")
+        media_id = request.json.get('media_id')
+        update_state = request.json.get('update_state')
+        result, error = await Blocklist().update_block_from_reccs(media_id=media_id, user_id=user_id, update_to=update_state)
         # return a json
         if error:
             return {'status': str(error)}

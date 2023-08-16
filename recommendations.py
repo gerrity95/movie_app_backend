@@ -1,6 +1,3 @@
-import asyncio
-from typing import Optional
-
 from env_config import Config
 from base.mongoclient import MongoClient
 from base.tmdbclient import TmdbClient
@@ -35,13 +32,19 @@ class Recommendations:
         if stored_reccs:
             print('Found existing recommendations object. Will update existing.')
             # Check if we need to generate new recommendations
-            need_new_reccs, error = await self.handle_stored_reccs(user_id=user_id, stored_reccs=stored_reccs)
+            need_new_reccs, ongoing_update, error = await self.handle_stored_reccs(user_id=user_id, stored_reccs=stored_reccs)
             if error:
                 return None, error
             
             if need_new_reccs:
                 # Apply logic to generate new recommendations
                 recommendations, err = await self.generate_new_recommendations(user_id=user_id, is_new=False, existing_reccs=stored_reccs[0]['_id'])
+            
+            if ongoing_update:
+                # Return recommendations that were generated while this request was made
+                encoded_reccs = JSONEncoder().encode(need_new_reccs)
+                encoded_reccs = json.loads(encoded_reccs)
+                return encoded_reccs, None
             else:
                 # Return existing recommendations
                 encoded_reccs = JSONEncoder().encode(stored_reccs[0])
@@ -105,7 +108,8 @@ class Recommendations:
         try:
             print("Checking if we are currently updating the recommendations for user: " + user_id)
             if stored_reccs[0]['state'] == 'in_progress':
-                return await self.recc_helper.monitor_in_progress(user_id)
+                inprogress_reccs, err = await self.recc_helper.monitor_in_progress(user_id)
+                return inprogress_reccs, True, err
 
             # Check against rated movies to see if we need to update the recommendations
             encoded_reccs = JSONEncoder().encode(stored_reccs[0])
@@ -114,13 +118,13 @@ class Recommendations:
             need_new_reccs, error = await self.compare_reccs_with_rated(user_id=user_id, encoded_reccs=encoded_reccs)
             if error:
                 print(f"Error {error} seen attempting to compare recommendations with rated media")
-                return None, RecommendationException
+                return None, False, RecommendationException
             
             print(f"User needs new recommendations: {need_new_reccs}")
-            return need_new_reccs, None
+            return need_new_reccs, False, None
         except Exception as e:
             print(f"Error {e} seen attempting to compare recommendations with rated media")
-            return None, RecommendationException
+            return None, False, RecommendationException
 
     async def compare_reccs_with_rated(self, user_id, encoded_reccs: dict):
         """
