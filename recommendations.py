@@ -79,8 +79,8 @@ class Recommendations:
                 print('Newly created entry')
                 print(updated_doc.inserted_id)
                 # For newly created entries
-                existing_reccs = updated_doc.inserted_id 
-                
+                existing_reccs = updated_doc.inserted_id
+
             print(existing_reccs)
             
             result = await self.rec_collection.update_one({'_id': existing_reccs}, {
