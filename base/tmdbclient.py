@@ -127,7 +127,7 @@ class TmdbClient:
             print(f"Unexpected response from TMDB. Status: {result.status_code}, content: {result.content}")
             return None, Exception
 
-    async def make_parallel_discover_request(self, unique_id_list: str, type: str):
+    async def make_parallel_discover_request(self, unique_id_list: str, request_type: str):
         urls = []
         try:
             params = {
@@ -138,9 +138,9 @@ class TmdbClient:
 
             }
             for unique_id in unique_id_list:
-                if type == 'director':
+                if request_type == 'director':
                     params['with_crew'] = unique_id[0]
-                elif type == 'genre':
+                elif request_type == 'genre':
                     params['with_genres'] = unique_id[0]
                 else:
                     params['with_keywords'] = unique_id[0]
@@ -153,17 +153,28 @@ class TmdbClient:
 
             async with aiohttp.ClientSession() as session:
                 ret = await asyncio.gather(*[self.get(url, session) for url in urls])
-            print("Finalized all. Return is a list of len {} outputs.".format(len(ret)))
+            print(f"Finalized all. Return is a list of len {len(ret)} outputs.")
 
             # Convert items from BYTES to JSON
             completed = []
             for item in ret:
                 completed.append(json.loads(item))
 
+            # Append the director ID and keywords to the results so they can be used in the calculation algo.
+            if request_type == 'director':
+                for index, discover_result in enumerate(completed):
+                    for media in discover_result['results']:
+                        media['director'] = unique_id_list[index][0]
+                    
+            if request_type == 'keywords':
+                for index, discover_result in enumerate(completed):
+                    for media in discover_result['results']:
+                        media['keywords'] = unique_id_list[index][0]
+
             return completed, None
 
-        except Exception as e:
-            print(f"Error {e} attempting to talk to TMDB.")
+        except Exception as err:
+            print(f"Error {err} attempting to talk to TMDB.")
             return None, Exception
 
     async def get_media_information(self, media_ids: list):
