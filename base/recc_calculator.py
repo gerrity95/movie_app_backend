@@ -55,6 +55,7 @@ class ReccCalculator:
         '''
 
         discover_directors = tmdb_data['discover_directors']
+        discover_networks = tmdb_data['discover_networks']
         discover_keywords = tmdb_data['discover_keywords']
         discover_genres = tmdb_data['discover_genres']
         similar_movies = tmdb_data['similar_movies']
@@ -63,11 +64,13 @@ class ReccCalculator:
         directors = tmdb_data['directors']
         genres = tmdb_data['genres']
         keywords = tmdb_data['keywords']
+        networks = tmdb_data['networks']
 
         discovered_data = []
         discovered_data.extend(discover_genres)
         discovered_data.extend(discover_keywords)
         discovered_data.extend(discover_directors)
+        discovered_data.extend(discover_networks)
         discovered_data.extend(similar_movies)
         discovered_data.extend(recommeded_movies)
 
@@ -110,6 +113,11 @@ class ReccCalculator:
         # Assign weight from directors
         media_weights = self.assign_director_weight(
             media_weights=media_weights, discovered_data=discovered_data, directors=directors)
+
+        # Assign weight from networks for tv only
+        if self.config.NODE_ENV == "tv":
+            media_weights = self.assign_networks_weight(
+                media_weights=media_weights, discovered_data=discovered_data, networks=networks)
 
         # Assign weight from keywords
         media_weights = self.assign_keyword_weight(
@@ -170,6 +178,22 @@ class ReccCalculator:
                 for dirs in directors:
                     if dir_id == dirs[0]:
                         media_weights[movie_id] += dirs[1]
+
+        return media_weights
+
+    @staticmethod
+    def assign_networks_weight(media_weights, discovered_data, networks):
+        '''
+        Function that will identify the users most frequently rated networks and append this to the movie weight. 
+        '''
+        for media in discovered_data:
+            # Not all movies will have the director populated
+            if 'networks' in media:
+                network = media['networks']
+                media_id = media['id']
+                for netw in networks:
+                    if network == netw[0]:
+                        media_weights[media_id] += netw[1]
 
         return media_weights
 

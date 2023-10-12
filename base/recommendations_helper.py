@@ -8,6 +8,7 @@ from base.mongoclient import MongoClient
 from base.recc_calculator import ReccCalculator
 from base.tmdbclient import TmdbClient
 from env_config import Config
+import traceback
 
 
 class JSONEncoder(json.JSONEncoder):
@@ -88,17 +89,33 @@ class RecommendationsHelper:
         keywords = []
         for item in rated_media:
             keywords.append(item['keywords'])
-        directors, genres, keywords = self.extract_details_for_discover(
-            rated_media)  # BUG HERE
+        try:
+            directors, genres, keywords, networks = self.extract_details_for_discover(
+                rated_media)  # BUG HERE
+        except Exception:
+            print("Error attempting to extract details for discover")
+            print(traceback.format_exc())
+            return None, RecommendationException
 
         discover_directors = []
-        disc_direc, error = await self.tmdb_client.make_parallel_discover_request(request_type='director',
-                                                                                  unique_id_list=directors)
-        if error:
-            print("Error attempting to get query discover for directors")
-            return None, RecommendationException
-        for item in disc_direc:
-            discover_directors.extend(item['results'])
+        if self.config.NODE_ENV != 'tv':
+            disc_direc, error = await self.tmdb_client.make_parallel_discover_request(request_type='director',
+                                                                                      unique_id_list=directors)
+            if error:
+                print("Error attempting to get query discover for directors")
+                return None, RecommendationException
+            for item in disc_direc:
+                discover_directors.extend(item['results'])
+
+        discover_networks = []
+        if self.config.NODE_ENV == 'tv':
+            disc_netw, error = await self.tmdb_client.make_parallel_discover_request(request_type='networks',
+                                                                                     unique_id_list=networks)
+            if error:
+                print("Error attempting to get query discover for networks")
+                return None, RecommendationException
+            for item in disc_netw:
+                discover_networks.extend(item['results'])
 
         discover_genres = []
         disc_genre, error = await self.tmdb_client.make_parallel_discover_request(request_type='genre', unique_id_list=genres)
@@ -137,12 +154,13 @@ class RecommendationsHelper:
             recommended_movie_collection.extend(item['results'])
 
         full_response = {'discover_directors': discover_directors, 'discover_genres': discover_genres,
-                         'discover_keywords': discover_keywords,
+                         'discover_keywords': discover_keywords, 'discover_networks': discover_networks,
                          'similar_movies': similar_media_collection,
                          'recommeded_movies': recommended_movie_collection,
                          'rated_movies': rated_media,
                          'directors': directors,
                          'keywords': keywords,
+                         'networks': networks,
                          'genres': genres}
 
         return JSONEncoder().encode(full_response), error
@@ -173,13 +191,20 @@ class RecommendationsHelper:
         genres = []
         directors = []
         keywords = []
+        networks = []
         for item in rated_media:
             genres.append(item['genres'])
             directors.append(item['director'])
             keywords.append(item['keywords'])
+            # Networks are TV specific
+            if 'networks' in item:
+                networks.append(item['networks']['id'])
 
         direc_counts = Counter(directors)
         most_common_direcs = direc_counts.most_common(6)
+
+        network_counts = Counter(networks)
+        most_common_networks = network_counts.most_common(6)
 
         list_of_g_ids = []
         for genre in genres:
@@ -202,7 +227,7 @@ class RecommendationsHelper:
         most_common_genres = genre_counts.most_common(6)
         most_common_keywords = keyword_counts.most_common(6)
 
-        return most_common_direcs, most_common_genres, most_common_keywords
+        return most_common_direcs, most_common_genres, most_common_keywords, most_common_networks
 
     async def query_mongo_for_user(self, user_id, collection):
         """
