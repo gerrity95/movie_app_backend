@@ -74,12 +74,6 @@ class ReccCalculator:
         discovered_data.extend(similar_movies)
         discovered_data.extend(recommeded_movies)
 
-        print("NETWORKS")
-        print(discover_networks)
-
-        print("DIRECTORS")
-        print(discover_directors)
-
         # REMOVE ALL RATED MOVIES
         existing_ids = []
         for item in rated_movies:
@@ -192,18 +186,12 @@ class ReccCalculator:
         '''
         Function that will identify the users most frequently rated networks and append this to the movie weight. 
         '''
-        print("NETWORK WEIGHT")
         for media in discovered_data:
             # Not all movies will have the director populated
             if 'networks' in media:
-                print(f'BAH: {media}')
-                print(f"Boom: {type(media['networks'])}")
                 network = media['networks']
-                print(f"network: {network}")
-                print(f"media_id: {media['id']}")
                 media_id = media['id']
                 for netw in networks:
-                    print(f"netw: {netw}")
                     if network == netw[0]:
                         media_weights[media_id] += netw[1]
 

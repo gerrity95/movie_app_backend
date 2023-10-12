@@ -92,18 +92,13 @@ class RecommendationsHelper:
         try:
             directors, genres, keywords, networks = self.extract_details_for_discover(
                 rated_media)  # BUG HERE
-        except Exception as e:
-            print(f"Error attempting to extract details for discover")
+        except Exception:
+            print("Error attempting to extract details for discover")
             print(traceback.format_exc())
             return None, RecommendationException
 
-        print("DISCOVER DETAILS")
-        print(directors)
-        print(networks)
-
         discover_directors = []
         if self.config.NODE_ENV != 'tv':
-            print("DISCOVER DIRECTORS")
             disc_direc, error = await self.tmdb_client.make_parallel_discover_request(request_type='director',
                                                                                       unique_id_list=directors)
             if error:
@@ -114,7 +109,6 @@ class RecommendationsHelper:
 
         discover_networks = []
         if self.config.NODE_ENV == 'tv':
-            print("DISCOVER NETWORKS")
             disc_netw, error = await self.tmdb_client.make_parallel_discover_request(request_type='networks',
                                                                                      unique_id_list=networks)
             if error:
