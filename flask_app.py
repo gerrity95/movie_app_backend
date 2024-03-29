@@ -1,5 +1,7 @@
 import os
+import flask
 from flask import Flask, jsonify, request, Response
+from flask_cors import CORS
 from prometheus_flask_exporter import PrometheusMetrics
 from base.tmdbclient import TmdbClient
 from base.mongoclient import MongoClient
@@ -10,12 +12,15 @@ from watchlist import Watchlist, Blocklist
 from env_config import Config
 
 app = Flask(__name__)
+CORS(app, origins=Config().VALID_CORS)
 metrics = PrometheusMetrics(app)
+
 
 # custom metric to be applied to multiple endpoints
 common_counter = metrics.counter(
     'by_endpoint_counter', 'Request count by endpoints',
-    labels={'endpoint': lambda: request.endpoint, 'status': lambda resp: resp.status_code}
+    labels={'endpoint': lambda: request.endpoint,
+            'status': lambda resp: resp.status_code}
 )
 
 
@@ -25,6 +30,7 @@ def welcome():
     # return a json
     env = Config().NODE_ENV
     return jsonify({'status': 'api is working', 'env': env})
+
 
 @app.route('/status')
 async def status_ping():
@@ -68,7 +74,7 @@ async def get_reccs():
         # return a json
         if error:
             return jsonify({'status': str(error)})
-        
+
         print('NO ERROR')
         print(result)
         return jsonify({'result': result.deconstruct()})
@@ -92,13 +98,15 @@ async def get_watchlist():
 
     return jsonify({'status': False})
 
+
 @app.route('/update_blocklist', methods=['GET', 'POST'])
 async def update_blocklist():
     print("Request received to get update blocklist...")
     print(request.json)
     user_id = request.json.get('user_id')
     if user_id:
-        print(f"Request received to get update blocklist for user {user_id}...")
+        print(
+            f"Request received to get update blocklist for user {user_id}...")
         media_id = request.json.get('media_id')
         update_state = request.json.get('update_state')
         result, error = await Blocklist().update_block_from_reccs(media_id=media_id, user_id=user_id, update_to=update_state)
