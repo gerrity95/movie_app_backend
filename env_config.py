@@ -11,6 +11,7 @@ class Config:
 
         load_dotenv()
         self.NODE_ENV = os.getenv('NODE_ENV')
+        self.PORT = os.getenv('PORT')
         self.MONGO_HOSTNAME = os.getenv('MONGO_HOSTNAME')
         self.MONGO_PORT = os.getenv('MONGO_PORT')
         self.MONGO_USERNAME = os.getenv('MONGO_USERNAME')
