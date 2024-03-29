@@ -12,7 +12,7 @@ from watchlist import Watchlist, Blocklist
 from env_config import Config
 
 app = Flask(__name__)
-# CORS(app, origins=Config().VALID_CORS)
+CORS(app, origins=Config().VALID_CORS)
 metrics = PrometheusMetrics(app)
 
 
