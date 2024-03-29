@@ -1,15 +1,16 @@
 from dotenv import load_dotenv
 import os
-import sys
+
 
 class Config:
     """
     Config class for reading in env attributes
     """
+
     def __init__(self) -> None:
-    
+
         load_dotenv()
-        self.NODE_ENV = sys.argv[1]
+        self.NODE_ENV = os.getenv('NODE_ENV')
         self.MONGO_HOSTNAME = os.getenv('MONGO_HOSTNAME')
         self.MONGO_PORT = os.getenv('MONGO_PORT')
         self.MONGO_USERNAME = os.getenv('MONGO_USERNAME')
@@ -23,6 +24,7 @@ class Config:
 
         self.TMDB_API = os.getenv('TMDB_API')
         self.TMDB_READ_TOKEN = os.getenv('TMDB_READ_TOKEN')
+        self.VALID_CORS = os.getenv('VALID_CORS')
 
         if self.NODE_ENV == 'tv':
             self.load_tv_configs()
@@ -42,4 +44,3 @@ class Config:
         self.RATED_COLLECTION = 'rated_movies'
         self.ID_KEY = 'movie_id'
         self.INFO_KEY = 'movie_info'
-        

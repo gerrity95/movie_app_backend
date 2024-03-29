@@ -21,7 +21,7 @@ services:
     restart: unless-stopped
       #networks:
       #- app-network
-    command: python -u flask_app.py movie
+    command: gunicorn --config gunicorn.py flask_app:app
   rmq_client:
     container_name: whattowatch_rmq
     image: python_backend:0.0.1
@@ -97,5 +97,5 @@ networks:
   default:
     external: true
     name: app-network
-      #volumes:
-      #dbdata:
+volumes:
+  dbdata:
