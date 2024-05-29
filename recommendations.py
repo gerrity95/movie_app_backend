@@ -69,7 +69,10 @@ class Recommendations:
             print('Attempting to gather rated data from the database')
             recc_data, error = await self.recc_helper.gather_reccs_data(user_id=user_id)
             if error:
-                print(f"Error {error} attempting to gather rated data")
+                print(f"Error {error} attempting to gather rated data. Setting state in DB to failed for {updated_doc.inserted_id}.")
+                await self.rec_collection.update_one({'_id': updated_doc.inserted_id},
+                                                 {'$set': {'state': 'failed'},
+                                                  '$currentDate': {'updatedAt': True}})
                 return None, Exception
 
             print("Attempting to process recommendation data...")
