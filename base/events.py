@@ -4,6 +4,14 @@ import pickle
 from enum import Enum, auto
 from env_config import Config
 
+def define_state(state: str):
+    # Construct State enum
+    if isinstance(state, State):
+        return state
+    for state_enum in State:
+        if state_enum.name.lower() == state:
+            return state_enum
+    return State.undefined
 
 class State(Enum):
     
@@ -30,19 +38,18 @@ class RecommendationsEvent:
     def routing_key() -> str:
         return Config().ROUTING_KEY
 
-    def __init__(self, user_id: str):
-        self.user_id = user_id
+    def __init__(self):
+        self.user_id = ""
         self.uuid = str(uuid4())
         self.parent_uuid = self.uuid
         self.timestamp = datetime.datetime.now()
         self.reccomendations = []
         self.duration = 0
         self.result_routing_key = self.uuid
-        self.test_attribute = "Hello Mark"
         self.state = State.undefined
         self.existing_reccs_id = None
         
-    def deconstruct(self):
+    def deconstruct(self) -> dict:
         """Deconstruct the class object into a JSON readable format"""
         a_dict = {
             "user_id": self.user_id,
@@ -58,11 +65,30 @@ class RecommendationsEvent:
         # Remove empty attributes
         return {k: v for k, v in a_dict.items()
                 if v != "" and v is not None and v != {}}
-        
-    def serialize(self):
-        """Convert a RecommendationsEvent to bytes so we can pass it through RMQ"""
-        return pickle.dumps(self)
     
-    def deserialize(self):
-        """Convert a bytes version of RecommendationsEvent to an Object"""
-        return pickle.loads(self)
+    @staticmethod
+    def reconstruct(a_dict: dict):
+
+        event = RecommendationsEvent()
+        event.user_id = a_dict.get('user_id', event.user_id)
+        event.uuid = a_dict.get('uuid', event.uuid)
+        event.parent_uuid = a_dict.get('parent_uuid', event.parent_uuid)
+        event.timestamp = a_dict.get('timestamp', event.timestamp)
+        event.reccomendations = a_dict.get('reccomendations', event.reccomendations)
+        event.duration = a_dict.get('duration', event.duration)
+        event.result_routing_key = a_dict.get('result_routing_key', event.result_routing_key)
+        event.existing_reccs_id = a_dict.get('existing_reccs_id', event.existing_reccs_id)
+        event.state = define_state(a_dict.get('state', event.state))
+        
+
+        return event
+
+
+        
+    # def serialize(self):
+    #     """Convert a RecommendationsEvent to bytes so we can pass it through RMQ"""
+    #     return pickle.dumps(self)
+    
+    # def deserialize(self):
+    #     """Convert a bytes version of RecommendationsEvent to an Object"""
+    #     return pickle.loads(self)

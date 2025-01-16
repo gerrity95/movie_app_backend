@@ -74,9 +74,6 @@ async def get_reccs():
         # return a json
         if error:
             return jsonify({'status': str(error)})
-
-        print('NO ERROR')
-        print(result)
         return jsonify({'result': result.deconstruct()})
 
     return jsonify({'status': False})

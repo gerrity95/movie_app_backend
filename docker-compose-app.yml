@@ -1,0 +1,47 @@
+services:
+
+  flask_backend:
+    container_name: whattowatch_flask
+    image: python_backend:0.0.1
+    build:
+      context: .
+      dockerfile: ./Dockerfile_Python
+    volumes:
+      - .:/usr/src/app/
+    ports:
+      - 5001:5001
+    # depends_on:
+    #   - rabbitmq
+    environment:
+      PORT: 5001
+      FLASK_DEBUG: 1
+      PYTHONUNBUFFERED: 1
+    restart: unless-stopped
+    networks:
+      - whattowatch_network
+    command: gunicorn --config gunicorn.py flask_app:app
+
+  rmq_client:
+    container_name: whattowatch_rmq
+    image: python_backend:0.0.1
+    build:
+      context: .
+      dockerfile: ./Dockerfile_Python
+    volumes:
+      - .:/usr/src/app/
+    ports:
+      - 5002:5002
+    # depends_on:
+    #   - rabbitmq
+    environment:
+      PORT: 5002
+      FLASK_DEBUG: 1
+      PYTHONUNBUFFERED: 1
+    restart: unless-stopped
+    networks:
+      - whattowatch_network
+    command: python -u async_rmq.py movie
+
+networks:
+  whattowatch_network:
+    external: true
