@@ -1,5 +1,4 @@
 services:
-
   db:
     image: mongo
     container_name: db
@@ -44,15 +43,38 @@ services:
       - RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS=+S 1:1
     ports:
       # AMQP protocol port
-      - '5672:5672'
+      - "5672:5672"
       # HTTP management UI
-      - '15672:15672'
+      - "15672:15672"
     networks:
       - default
+
+  # rmq_client:
+  #   container_name: whattowatch_rmq
+  #   image: python_backend:0.0.1
+  #   build:
+  #     context: .
+  #     dockerfile: ./Dockerfile_Python
+  #   volumes:
+  #     - .:/usr/src/app/
+  #   ports:
+  #     - 5002:5002
+  #   # depends_on:
+  #   #   - rabbitmq
+  #   environment:
+  #     PORT: 5002
+  #     FLASK_DEBUG: 1
+  #     PYTHONUNBUFFERED: 1
+  #   restart: unless-stopped
+  #   networks:
+  #     - default
+  #   command: python -u async_rmq.py movie
 
 networks:
   default:
     external: true
     name: whattowatch_network
+  app-network:
+    external: true
 volumes:
   dbdata:

@@ -36,6 +36,8 @@ class AsyncRMQ:
                         message: IncomingMessage = message
                         async with message.process():
                             try:
+                                print("MESSAGE")
+                                print(message)
                                 event_dict: dict = json.loads(message.body, object_hook=json_util.object_hook)
                                 recommendations_event: RecommendationsEvent = RecommendationsEvent.reconstruct(event_dict)
                                 print(
@@ -46,52 +48,25 @@ class AsyncRMQ:
                                 raise err
                             new_reccs, error = await self.recommendations.process_recommendations(user_id=recommendations_event.user_id)
                             if error:
-                                print(
-                                    f"Error {error} calculating reccs for user: {recommendations_event.user_id}")
+                                print(f"Error {error} calculating reccs for user: {recommendations_event.user_id}")
                                 recommendations_event.state = State.fail
                             else:
-                                print(
-                                    f"Successfully calculated Recommendations for user: {recommendations_event.user_id}")
+                                print(f"Successfully calculated Recommendations for user: {recommendations_event.user_id}")
                                 recommendations_event.state = State.ok
                                 recommendations_event.reccomendations = new_reccs
 
-                            print(
-                                f"Returning RecommendationsEvent for {recommendations_event.user_id}")
-                            exception = await self.rabbitmq_client.publish_new(message=recommendations_event.deconstruct(),
-                                                                        routing_key=recommendations_event.result_routing_key)
-                            if exception:
-                                print(
-                                    f"Error {exception} when attempting to send recommendations event back")
+                            if message.correlation_id:
+                                print(f"Returning RecommendationsEvent for {recommendations_event.user_id}")
+
+                                exception_new = await self.rabbitmq_client.publish_new(message=recommendations_event.deconstruct(),
+                                                                                    correlation_id=message.correlation_id,
+                                                                                    routing_key=message.reply_to, default=True)
+                                if exception_new:
+                                    print(f"Error {exception_new} when attempting to send recommendations event back to the reply queue")
+                                else:
+                                    print(f"Published RecommendationsEvent back to it's source")
                             else:
-                                print(f"Published RecommendationsEvent back to it's source")
-
-
-                # mq_consumer = self.rabbitmq_client.consume(queue=events_queue)
-                # async for event in mq_consumer:
-                #     recommendations_event: RecommendationsEvent = event
-                #     print(
-                #         f"Consumed RecommendationsEvent for user: {recommendations_event.user_id}")
-                #     recommendations_event.state = State.in_progress
-                #     new_reccs, error = await self.recommendations.process_recommendations(user_id=recommendations_event.user_id)
-                #     if error:
-                #         print(
-                #             f"Error {error} calculating reccs for user: {recommendations_event.user_id}")
-                #         recommendations_event.state = State.fail
-                #     else:
-                #         print(
-                #             f"Successfully calculated Recommendations for user: {recommendations_event.user_id}")
-                #         recommendations_event.state = State.ok
-                #         recommendations_event.reccomendations = new_reccs
-
-                #     print(
-                #         f"Returning RecommendationsEvent for {recommendations_event.user_id}")
-                #     exception = await self.rabbitmq_client.publish(message=recommendations_event,
-                #                                                    routing_key=recommendations_event.result_routing_key)
-                #     if exception:
-                #         print(
-                #             f"Error {exception} when attempting to send recommendations event back")
-                #     else:
-                #         print(f"Published RecommendationsEvent back to it's source")
+                                print(f"No correlation ID. Not publishing back to reply queue.")
 
             except Exception as error:
                 print(

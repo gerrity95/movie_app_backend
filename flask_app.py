@@ -67,6 +67,7 @@ async def rmq_test():
 @app.route('/get_reccomendations', methods=['GET', 'POST'])
 async def get_reccs():
     print("Request received to get recommendations...")
+    print(request.json)
     user_id = request.json.get('user_id')
     if user_id:
         # result, error = await Recommendations().calculate_reccs(user_id=user_id)

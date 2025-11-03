@@ -35,6 +35,43 @@ We then increase weights based on the genres:
 We then assign increase weights based on the movie rating in TMDB itself:
     We append the movie rating to the weight for that given movie, e.g. if a movie is rated 84% we will append 8.4 to the overall recommendation weight for that movie
 
+---
+
+# TODO
+
+Print out recommendations_helper.gather_recc_data
+
+
+Update extract_details_for_discover to get the 10 most common
+
+
+
+Consolidate discover request into a single request per request type
+
+i.e. one request for all directors
+
+e.g.
+
+https://api.themoviedb.org/3/discover/movie?include_adult=false&include_video=false&language=en-US&page=1&sort_by=vote_average.desc&vote_average.gte=6&vote_count.gte=1000&with_crew=9032%7C1032&with_genres=18%7C80%7C53
+
+
+Can we get more than 10 in the response? Try and get 100
+
+Parallel requests with different pages
+
+-- 
+
+
+get_top_rated_media
+
+Maybe expand past 20, into 40?
+
+
+---
+
+Account for movie decades
+
+For every movie I've rated, add 1 point to the weight for the decade it was released
 
 
 """

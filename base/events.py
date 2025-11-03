@@ -38,6 +38,10 @@ class RecommendationsEvent:
     def routing_key() -> str:
         return Config().ROUTING_KEY
 
+    @staticmethod
+    def reply_key() -> str:
+        return "reply_queue"
+
     def __init__(self):
         self.user_id = ""
         self.uuid = str(uuid4())

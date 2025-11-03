@@ -107,7 +107,7 @@ class RabbitMqClient:
         message = aio_pika.Message(body=body, expiration=60)
         await self.exchange.publish(message=message, routing_key=routing_key, timeout=self.timeout)
 
-    async def publish_new(self, message: dict, routing_key: str) -> Exception:
+    async def publish_new(self, message: dict, routing_key: str, correlation_id: str, default: bool = False) -> Exception:
         """
         This is a function design that will allow us to publish a message to a RMQ channel
         :param message: The message body
@@ -115,21 +115,28 @@ class RabbitMqClient:
         """
 
         try:
-            await self._publish_with_retries(message=message, routing_key=routing_key)
+            await self._publish_with_retries(message=message, routing_key=routing_key, correlation_id=correlation_id, default=default)
         except Exception as error:
             print(f"Failed to publish to RMQ -> {error}")
             return error
     
     @backoff.on_exception(backoff.fibo, Exception, max_tries=3, max_time=60)
-    async def _publish_with_retries(self, message: dict, routing_key: str) -> None:
+    async def _publish_with_retries(self, message: dict, routing_key: str, correlation_id: str, default: bool = False) -> None:
         await self.refresh_channel()
         print(f"Publishing message {message.get('uuid')} to {routing_key}")
         body = json.dumps(message, default=json_util.default)
         body_as_bytes = body.encode()
-        message = aio_pika.Message(body=body_as_bytes, expiration=60)
-        await self.exchange.publish(message=message,
-                                    routing_key=routing_key,
-                                    timeout=self.timeout)
+        message = aio_pika.Message(body=body_as_bytes, expiration=60, correlation_id=correlation_id)
+        if default:
+            print("DEFAULT")
+            print(routing_key)
+            await self.channel.default_exchange.publish(message=message,
+                                                        routing_key=routing_key,
+                                                        timeout=self.timeout)
+        else:
+            await self.exchange.publish(message=message,
+                                        routing_key=routing_key,
+                                        timeout=self.timeout)
     
     async def generator(self, queue: Queue, ignore_processed: bool = False, timeout: int = None):
         """

@@ -14,13 +14,14 @@ class RecommendationPublisher:
         calc_start = datetime.datetime.now()
         recommendation_event = RecommendationsEvent()
         recommendation_event.user_id = user_id
-        
+        print(recommendation_event.deconstruct())
         return_queue, error = await self.rabbitmq_client.declare_queue(routing_key=recommendation_event.result_routing_key,
                                                                 durable=False,
                                                                 auto_delete=True)
     
-        error: Exception = await self.rabbitmq_client.publish_new(message=recommendation_event.deconstruct(), 
-                                                              routing_key=recommendation_event.routing_key())
+        error: Exception = await self.rabbitmq_client.publish_new(message=recommendation_event.deconstruct(),
+                                                              routing_key=recommendation_event.routing_key(),
+                                                              correlation_id=recommendation_event.result_routing_key)
                 
         if not error:
             print("Successfully published RecommendationsEvent. Will wait to consume result...")
