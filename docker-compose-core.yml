@@ -1,48 +1,4 @@
-version: '3'
-
 services:
-
-  flask_backend:
-    container_name: whattowatch_flask
-    image: python_backend:0.0.1
-    build:
-      context: .
-      dockerfile: ./Dockerfile_Python
-    volumes:
-      - .:/usr/src/app/
-    ports:
-      - 5001:5001
-    depends_on:
-      - rabbitmq
-    environment:
-      PORT: 5001
-      FLASK_DEBUG: 1
-      PYTHONUNBUFFERED: 1
-    restart: unless-stopped
-      #networks:
-      #- app-network
-    command: gunicorn --config gunicorn.py flask_app:app
-  rmq_client:
-    container_name: whattowatch_rmq
-    image: python_backend:0.0.1
-    build:
-      context: .
-      dockerfile: ./Dockerfile_Python
-    volumes:
-      - .:/usr/src/app/
-    ports:
-      - 5002:5002
-    depends_on:
-      - rabbitmq
-    environment:
-      PORT: 5002
-      FLASK_DEBUG: 1
-      PYTHONUNBUFFERED: 1
-    restart: unless-stopped
-      #networks:
-      #- app-network
-    command: watchmedo auto-restart --patterns="*.py" --recursive -- python -u async_rmq.py movie
-
   db:
     image: mongo
     container_name: db
@@ -55,8 +11,8 @@ services:
       - 27017:27017
     volumes:
       - ./dbdata:/data/db
-        #networks:
-        #- app-network
+    networks:
+      - default
 
   mongo-express:
     image: mongo-express
@@ -87,15 +43,38 @@ services:
       - RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS=+S 1:1
     ports:
       # AMQP protocol port
-      - '5672:5672'
+      - "5672:5672"
       # HTTP management UI
-      - '15672:15672'
-        #networks:
-        #- app-network
+      - "15672:15672"
+    networks:
+      - default
+
+  # rmq_client:
+  #   container_name: whattowatch_rmq
+  #   image: python_backend:0.0.1
+  #   build:
+  #     context: .
+  #     dockerfile: ./Dockerfile_Python
+  #   volumes:
+  #     - .:/usr/src/app/
+  #   ports:
+  #     - 5002:5002
+  #   # depends_on:
+  #   #   - rabbitmq
+  #   environment:
+  #     PORT: 5002
+  #     FLASK_DEBUG: 1
+  #     PYTHONUNBUFFERED: 1
+  #   restart: unless-stopped
+  #   networks:
+  #     - default
+  #   command: python -u async_rmq.py movie
 
 networks:
   default:
     external: true
-    name: app-network
+    name: whattowatch_network
+  app-network:
+    external: true
 volumes:
   dbdata:

@@ -12,21 +12,23 @@ class RecommendationPublisher:
 
     async def main(self, user_id):
         calc_start = datetime.datetime.now()
-        recommendation_event = RecommendationsEvent(user_id=user_id)
-        
+        recommendation_event = RecommendationsEvent()
+        recommendation_event.user_id = user_id
+        print(recommendation_event.deconstruct())
         return_queue, error = await self.rabbitmq_client.declare_queue(routing_key=recommendation_event.result_routing_key,
                                                                 durable=False,
                                                                 auto_delete=True)
-        
-        error: Exception = await self.rabbitmq_client.publish(message=recommendation_event, 
-                                                              routing_key=recommendation_event.routing_key())
+    
+        error: Exception = await self.rabbitmq_client.publish_new(message=recommendation_event.deconstruct(),
+                                                              routing_key=recommendation_event.routing_key(),
+                                                              correlation_id=recommendation_event.result_routing_key)
                 
         if not error:
-            print("Successfully published RecommendationsEvent")
+            print("Successfully published RecommendationsEvent. Will wait to consume result...")
             result, error = await self.rabbitmq_client.consume_first(routing_key=recommendation_event.result_routing_key,
                                                                      queue=return_queue, count=1)
             if result:
-                recommendation_event: RecommendationsEvent = result[0]
+                recommendation_event: RecommendationsEvent = RecommendationsEvent.reconstruct(result)
                 print(f"Succesfully got a result back from RMQ")
                 calc_finish = datetime.datetime.now()
                 print(f"Calculation Duration: {(calc_finish - calc_start).total_seconds()}")
